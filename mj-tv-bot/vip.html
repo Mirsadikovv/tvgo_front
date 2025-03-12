@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <title>MJtv</title>
+    <title>TVGO</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
@@ -33,16 +33,21 @@
     </div>
 
     <script>
-        new Vue({
+        var app = new Vue({
             el: '#app',
             data: {
                 showChannelsBlock: true,
                 showPlayerBlock: false,
+                tg: window.Telegram.WebApp,
                 channels: [],
                 channel: null,
+                lock_img_src: 'lock-icon.png',
                 hls: null
             },
             mounted() {
+                if (this.tg.isExpanded == false) {
+                    this.tg.expand();
+                }
                 this.fetchChannels();
             },
             methods: {
@@ -61,32 +66,43 @@
                     this.showPlayerBlock = true;
                     
                     this.$nextTick(() => {
-                        const video = this.$refs.video;
+                        this.autoplay(channel);
+                    });
+                },
+                onLockedImageClick(channel) {
+                    this.tg.showAlert("Чтобы смотреть этот канал, вы должны иметь подписку");
+                },
+                autoplay(channel) {
+                    const streamUrl = channel.channelLink;
+
+                    if (streamUrl) {
                         if (Hls.isSupported()) {
                             if (this.hls) {
                                 this.hls.destroy();
                             }
                             this.hls = new Hls();
-                            this.hls.loadSource(channel.channelLink);
-                            this.hls.attachMedia(video);
-                        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                            video.src = channel.channelLink;
+                            this.hls.loadSource(streamUrl);
+                            this.hls.attachMedia(this.$refs.video);
+                            this.$refs.video.play();
+                        } else if (this.$refs.video.canPlayType('application/vnd.apple.mpegurl')) {
+                            this.$refs.video.src = streamUrl;
+                            this.$refs.video.addEventListener('loadedmetadata', () => {
+                                this.$refs.video.play();
+                            });
                         }
-                    });
+                    }
+                },
+                close_webapp() {
+                    this.tg.close();
                 },
                 back() {
                     if (this.hls) {
                         this.hls.destroy();
                         this.hls = null;
                     }
-                    this.showChannelsBlock = true;
                     this.showPlayerBlock = false;
+                    this.showChannelsBlock = true;
                     this.channel = null;
-                },
-                close_webapp() {
-                    if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
-                        Telegram.WebApp.close();
-                    }
                 }
             }
         });
